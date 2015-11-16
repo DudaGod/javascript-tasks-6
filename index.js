@@ -1,6 +1,6 @@
 'use strict';
 
-var moment = require('./moment');
+var moment = require('./moment').moment;
 var robbery = require('./robbery');
 
 // Трое аферистов решили пойти на «дело» ;)

@@ -1,26 +1,22 @@
 'use strict';
 
-var moment = require('./moment');
-
-var DAY = {
-    ВС: 0,
-    ПН: 1,
-    ВТ: 2,
-    СР: 3,
-    ЧТ: 4,
-    ПТ: 5,
-    СБ: 6
-};
-
-var DAYS_IN_WEEK = 7;
+var moment = require('./moment').moment;
+var parseStringToDate = require('./moment').parseStringToDate;
+var MS_IN_MINUTES = require('./moment').MS_IN_MINUTES;
 
 // Выбирает подходящий ближайший момент начала ограбления
 module.exports.getAppropriateMoment = function (json, minDuration, workingHours) {
     var appropriateMoment = moment();
-    appropriateMoment.timezone = 5;
 
-    var gang = JSON.parse(json, reviever);
-    var bank = JSON.parse(JSON.stringify(workingHours), reviever);
+    var bank = JSON.parse(JSON.stringify(workingHours), reviver);
+    bank.deadline = new Date(bank.from);
+    bank.deadline.setDate(bank.deadline.getDate() + 2);
+    bank.deadline.setHours(23, 59, 59);
+
+    if (bank.to < bank.from) {
+        bank.to.setDate(bank.to.getDate() + 1);
+    }
+    var gang = JSON.parse(json, reviver);
     var busyTime = [];
 
     for (var prop in gang) {
@@ -43,10 +39,6 @@ module.exports.getAppropriateMoment = function (json, minDuration, workingHours)
         if (!busyTime.indexOf(item)) {
             findAppropriateTime(item, bankFrom);
         } else if (busyTime.indexOf(item) === busyTime.length - 1) {
-            if (item.to.getDate() !== bankTo.getDate()) {
-                bankFrom.setDate(bankFrom.getDate() + 1);
-                bankTo.setDate(bankTo.getDate() + 1);
-            }
             findAppropriateTime(item, item.to, bankTo);
         } else {
             var prevItem = busyTime[busyTime.indexOf(item) - 1];
@@ -57,27 +49,25 @@ module.exports.getAppropriateMoment = function (json, minDuration, workingHours)
     appropriateMoment.date = appropriateTime.length ? appropriateTime[0].from : null;
     return appropriateMoment;
 
-
-
     function findAppropriateTime(item, from, end) {
         var to = end || item.from;
-        while (to.getDate() !== bankFrom.getDate() ||
-        from.getDate() !== bankFrom.getDate()) {
+        while (bankTo < from) {
             bankFrom.setDate(bankFrom.getDate() + 1);
             bankTo.setDate(bankTo.getDate() + 1);
         }
-        to = validTime(to, bankFrom, bankTo);
         from = validTime(from, bankFrom, bankTo);
-
+        to = validTime(to, bankFrom, bankTo);
         var result = to - from;
 
-        if (result / (1000 * 60) >= minDuration) {
+        if (result / MS_IN_MINUTES >= minDuration) {
             appropriateTime.push({from: from, to: to});
         }
     }
 
+
     function validTime(time, bankFrom, bankTo) {
-        return new Date(Math.min(Math.max(time, bankFrom), bankTo));
+        time = new Date(Math.min(Math.max(time, bankFrom), bankTo));
+        return time > bank.deadline ? new Date(bank.deadline) : time;
     }
 
     function fillBusyTime(obj) {
@@ -97,21 +87,9 @@ module.exports.getAppropriateMoment = function (json, minDuration, workingHours)
         busyTime.sort((a, b) => a.from - b.from);
     }
 
-    function reviever(key, value) {
+    function reviver(key, value) {
         if (key === 'from' || key === 'to') {
-            var match = value.match(/^([А-Я]{0,2})\s?(\d{2}):(\d{2})([+-]\d{1,2})$/);
-            var date = new Date();
-            var needDay = match[1] ? DAY[match[1]] : DAY.ПН;
-            var currentDay = date.getDay();
-            var dist = needDay + DAYS_IN_WEEK - currentDay;
-            date.setDate(date.getDate() + dist);
-            if (appropriateMoment.timezone === Number(match[4])) {
-                date.setHours(match[2], match[3], 0);
-            } else {
-                match[4] = appropriateMoment.timezone + (-Number(match[4]));
-                date.setHours(Number(match[2]) + match[4], match[3], 0);
-            }
-            return date;
+            return parseStringToDate.call(appropriateMoment, value);
         }
         return value;
     }

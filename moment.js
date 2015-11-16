@@ -1,79 +1,55 @@
 'use strict';
 
-var DAY_NAME = {
-    0: 'ВС',
-    1: 'ПН',
-    2: 'ВТ',
-    3: 'СР',
-    4: 'ЧТ',
-    5: 'ПТ',
-    6: 'СБ'
-};
+var DAY_NAME = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
 
-var DAY_VALUE = {
-    ВС: 0,
-    ПН: 1,
-    ВТ: 2,
-    СР: 3,
-    ЧТ: 4,
-    ПТ: 5,
-    СБ: 6
-};
+var MS_IN_DAY = 1000 * 60 * 60 * 24;
+var MS_IN_HOUR = 1000 * 60 * 60;
+var MS_IN_MINUTES = 1000 * 60;
 
-var DAYS_IN_WEEK = 7;
+var DAYS_IN_MONTH = 30;
+var HOURS_IN_DAY = 24;
+var MINUTES_IN_HOUR = 60;
 
-var DAYS = {
-    value: 1000 * 60 * 60 * 24,
-    count: 30
-};
+var READABLE_TIME = [
+    ['день', 'дня', 'дней'],
+    ['час', 'часа', 'часов'],
+    ['минута', 'минуты', 'минут']
+];
 
-var HOURS = {
-    value: 1000 * 60 * 60,
-    count: 24
-};
+var REG_EXP_DECLINATION_1 = /[^1]1$|^1$/;
+var REG_EXP_DECLINATION_2 = /[^1][2-4]$|^[2-4]$/;
 
-var MINUTES = {
-    value: 1000 * 60,
-    count: 60
-};
-
-var READABLE_TIME = {
-    0: ['день', 'дня', 'дней'],
-    1: ['час', 'часа', 'часов'],
-    2: ['минута', 'минуты', 'минут']
-};
-
-module.exports = function () {
+module.exports.moment = function () {
     return {
         // Здесь как-то хранится дата ;)
-        _d: null,
+        _date: null,
 
         get date() {
-            return this._d;
+            return this._date;
         },
 
         set date(value) {
             if (typeof value === 'string') {
-                var parseString = parseStringToDate.bind(this);
-                value = parseString(value);
+                value = parseStringToDate.call(this, value);
             }
-            this._d = value;
+            this._date = value;
         },
 
         // А здесь часовой пояс
-        _timez: null,
+        _timezone: null,
 
         get timezone() {
-            return this._timez;
+            return this._timezone;
         },
 
         set timezone(value) {
             if (this.date) {
-                var displacement = Math.max(value, this._timez) - Math.min(value, this._timez);
-                displacement *= value < this._timez ? -1 : 1;
+                var displacement = Math.max(value, this._timezone) -
+                    Math.min(value, this._timezone);
+                displacement *= value < this._timezone ? -1 : 1;
                 this.date.setHours(this.date.getHours() + displacement, this.date.getMinutes(), 0);
             }
-            this._timez = value;
+            this._timezone = value;
         },
 
         // Выводит дату в переданном формате
@@ -104,54 +80,61 @@ module.exports = function () {
             var timeRemain = [];
             var date = this.date - moment.date;
 
-            [MINUTES, HOURS, DAYS].forEach((item, index) => {
+            var numberIn = [MINUTES_IN_HOUR, HOURS_IN_DAY, DAYS_IN_MONTH];
+            [MS_IN_MINUTES, MS_IN_HOUR, MS_IN_DAY].forEach((item, index) => {
                 if (index === 0) {
-                    timeRemain.push(Math.round(date / item.value) % item.count);
+                    timeRemain.push(Math.round(date / item) % numberIn[index]);
                 } else {
-                    timeRemain.push(Math.floor(date / item.value) % item.count);
+                    timeRemain.push(Math.floor(date / item) % numberIn[index]);
                 }
             });
             timeRemain.reverse();
 
-            mainStr += convertToHumanReadable(timeRemain);
+            for (var i = 0; i < timeRemain.length; i++) {
+                if (!timeRemain[i]) {
+                    continue;
+                }
+                if (i !== timeRemain.length - 1) {
+                    mainStr += (REG_EXP_DECLINATION_1.test(String(timeRemain[i]))) ? 'остался'
+                        : 'осталось';
+                    break;
+                }
+                mainStr += (REG_EXP_DECLINATION_1.test(String(timeRemain[i]))) ? 'осталась'
+                    : 'осталось';
+            }
+
+            timeRemain.forEach((item, index) => {
+                if (item) {
+                    mainStr += morph(READABLE_TIME[index], item);
+                }
+            });
+
             return mainStr;
         }
     };
 };
 
-function convertToHumanReadable(arrayTime) {
-    var str = '';
-    arrayTime.forEach((item, index, arr) => {
-        var num = 0;
-        if (item) {
-            if (index !== arr.length - 1 && !str) {
-                str = (/[^1]1$|^1$/.test(String(item))) ? 'остался' : 'осталось';
-            } else if (!str) {
-                str = 'осталось';
-            }
-
-            if (/[^1][2-4]$|^[2-4]$/.test(String(item))) {
-                num = 1;
-            } else if (!/[^1]1$|^1$/.test(String(item))) {
-                num = 2;
-            }
-
-            str += ' ' + item + ' ' + READABLE_TIME[index][num];
-        }
-    });
-
-    return str;
+function morph(arrDeclinations, value) {
+    var index = 0;
+    if (REG_EXP_DECLINATION_2.test(String(value))) {
+        index = 1;
+    } else if (!REG_EXP_DECLINATION_1.test(String(value))) {
+        index = 2;
+    }
+    return ' ' + value + ' ' + arrDeclinations[index];
 }
 
 function parseStringToDate(string) {
     var match = string.match(/^([А-Я]{0,2})\s?(\d{2}):(\d{2})([+-]\d{1,2})$/);
     var date = new Date();
-    var needDay = match[1] ? DAY_VALUE[match[1]] : DAY_VALUE.ПН;
+    var needDay = match[1] ? DAY_NAME.indexOf(match[1]) : DAY_NAME.indexOf('ПН');
     var currentDay = date.getDay();
-    var dist = needDay + DAYS_IN_WEEK - currentDay;
+    var dist = needDay + DAY_NAME.length - currentDay;
     date.setDate(date.getDate() + dist);
-    if (this.timezone === Number(match[4]) || !this.timezone) {
+    if (!this.timezone) {
         this.timezone = Number(match[4]);
+        date.setHours(match[2], match[3], 0);
+    } else if (this.timezone === Number(match[4])) {
         date.setHours(match[2], match[3], 0);
     } else {
         match[4] = this.timezone + (-Number(match[4]));
@@ -159,3 +142,6 @@ function parseStringToDate(string) {
     }
     return date;
 }
+
+module.exports.MS_IN_MINUTES = MS_IN_MINUTES;
+module.exports.parseStringToDate = parseStringToDate;
