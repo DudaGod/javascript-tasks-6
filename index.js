@@ -1,7 +1,7 @@
 'use strict';
 
-var moment = require('./moment').moment;
-var robbery = require('./robbery');
+var moment = require('./es5/moment');
+var robbery = require('./es5/robbery');
 
 // Трое аферистов решили пойти на «дело» ;)
 var gang = require('fs').readFileSync('gang.json', 'utf-8');

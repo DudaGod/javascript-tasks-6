@@ -1,6 +1,6 @@
 'use strict';
 
-var moment = require('./moment').moment;
+var moment = require('./moment');
 var parseStringToDate = require('./moment').parseStringToDate;
 var MS_IN_MINUTES = require('./moment').MS_IN_MINUTES;
 

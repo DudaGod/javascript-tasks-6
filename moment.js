@@ -19,7 +19,7 @@ var READABLE_TIME = [
 var REG_EXP_DECLINATION_1 = /[^1]1$|^1$/;
 var REG_EXP_DECLINATION_2 = /[^1][2-4]$|^[2-4]$/;
 
-module.exports.moment = function () {
+module.exports = function () {
     return {
         // Здесь как-то хранится дата ;)
         _date: null,
